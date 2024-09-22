@@ -1,4 +1,18 @@
+# What is it?
+
+`bpf_validator` aims to validate summary statistics reported by load generation tools, independent of any particular tool. 
+
+Using a eBPF program injected into a Linux Socket, packets are captured from the network socket and decoded into a HTTP message.  Various HTTP message properties are captured, alongside a timestamp of the packet reaching the network socket. Packet information is sent via a eBPF ring buffer to user space process that calculate the RTT of each HTTP request and records the information in a HdrHistogram. 
+
+At the end of a load generation run, summary statistics are reported by `bpf_validator`, which can be used to validate the summary statistics reported by the load generation tool.
+
 The basis of this project can be found here: https://github.com/eunomia-bpf/bpf-developer-tutorial/tree/45558f406a67923938c8e697d6489489aa902cdd/src/23-http
+
+# Current limitations
+
+Currently the tool has the following limitations;
+- Only supports HTTP 1.1
+- Does not support HTTP pipelining
 
 # Prerequisites
 
