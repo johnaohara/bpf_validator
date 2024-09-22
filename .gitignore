@@ -1,0 +1,16 @@
+# ignore eclipse files
+.project
+.classpath
+.settings
+.metadata
+target
+
+# ignore IDEA files
+*.iml
+*.ipr
+*.iws
+.idea
+atlassian-ide-plugin.xml
+
+# ignore vscode files
+*.vscode
