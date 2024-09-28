@@ -16,7 +16,7 @@
 #include "bpf_validator.h"
 #include "bpf_validator.skel.h"
 #include <hdr/hdr_histogram.h>
-#include <inttypes.h>
+#include <time.h>
 
 // #define DEBUG
 
@@ -59,73 +59,24 @@ static inline void ltoa(uint32_t addr, char *dst)
 static int handle_event(void *ctx, void *data, size_t data_sz)
 {
 	const struct so_event *e = data;
-	char ifname[IF_NAMESIZE];
-	char sstr[16] = {}, dstr[16] = {};
 
-	if (e->pkt_type != PACKET_HOST)
-		return 0;
-
-	if (e->ip_proto < 0 || e->ip_proto >= IPPROTO_MAX)
-		return 0;
-
-	if (!if_indextoname(e->ifindex, ifname))
-		return 0;
-
-	ltoa(ntohl(e->src_addr), sstr);
-	ltoa(ntohl(e->dst_addr), dstr);
-
-	#ifdef DEBUG
-		printf("timestamp received: %llu\n", e->ktime_ns);
-	#endif
-
-	__u32 port = 0;
-
-	#ifdef DEBUG
-		printf("Found valid packet port - expecting: %d; got %d & %d\n", SRV_PORT, SND_PORT, RCV_PORT);
-	#endif
-
-	//todo: make this dynamic / configurable
-	if ( ntohs(e->port16[0]) == SRV_PORT) {
-		port = ntohs(e->port16[1]);
-	} else {
-		port = ntohs(e->port16[0]);
-	}
-	// printf("port: %d\n", port);
-
-	if ( initial_timestamp == 0  ) {
-		initial_timestamp = e->ktime_ns;
+	if( clock_gettime( CLOCK_REALTIME, &cur_time) == -1 ) {
+		perror( "clock gettime" );
+		return EXIT_FAILURE;
 	}
 
-	final_timestamp = e->ktime_ns;
+	final_timestamp = cur_time.tv_sec + (double) cur_time.tv_nsec / (double)BILLION;
 
 
-	__u64 val = timestamps[port];
-
-	if ( val == 0 ){
-		#ifdef DEBUG
-			printf("Setting timestamp %llu : %llu\n", val, e->ktime_ns);
-		#endif
-
-		timestamps[port] = e->ktime_ns;
-	} else {
-		#ifdef DEBUG
-			printf("Adding to histogram %llu\n", val);
-		#endif
-
-		hdr_record_value(
-			histogram,
-			e->ktime_ns - val);
-
-		#ifdef DEBUG
-			printf("%d(src) -> %d(dst); %llu\n", SND_PORT, RCV_PORT, e->ktime_ns);
-			printf("timestamp: %llu\n", e->ktime_ns - val);
-		#endif
-
-		timestamps[port] = 0;
-
-		events = events + 1;
+	if ( initial_timestamp == 0 ){
+		initial_timestamp = final_timestamp;
 	}
 
+
+	hdr_record_value(
+		histogram,
+		e->ktime_ns);
+	events = events + 1;
 
 	return 0;
 }
@@ -155,9 +106,8 @@ void printHdrHisto(){
 	printf("99.9th Percentile: %f\n", hdr_value_at_percentile(histogram, 99.9) / 1000000.0);
 	printf("99.99th Percentile: %f\n", hdr_value_at_percentile(histogram, 99.99) / 1000000.0);
 
-	double time_span = (final_timestamp - initial_timestamp)  / 1000000000.0 ;
+	double time_span = (final_timestamp - initial_timestamp)  ;
 
-	
 	printf("\n%llu requests in %fs\n", events, time_span );
 	printf("Av Throughput: %f req/sec\n", events / time_span);
 
