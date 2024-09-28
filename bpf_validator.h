@@ -4,35 +4,18 @@
 #define __BPF_VALIDATOR_H
 
 #define MAX_BUF_SIZE 2048
+#define BILLION  1000000000L;
 
 struct so_event {
-	__be32 src_addr;
-	__be32 dst_addr;
-	union {
-		__be32 ports;
-		__be16 port16[2];
-	};
-	__u32 ip_proto;
-	__u32 pkt_type;
-	__u32 ifindex;
 	__u64 ktime_ns;
-	// __u32 payload_length;
-    // __u8 payload[MAX_BUF_SIZE];
 };
 
-//TODO remove
-struct port_pairs {
-	union {
-		__be32 ports;
-		__be16 port16[2];
-	};
-};
+__u16 initial_val = 0;
 
-
-volatile __u64 timestamps[60999] = { [0 ... 60998] = 0 };
-__u64 initial_timestamp = 0;
-__u64 final_timestamp = 0;
+double initial_timestamp = 0;
+double final_timestamp = 0;
 __u64 events = 0;
+struct timespec cur_time;
 
 struct hdr_histogram* histogram;
 
