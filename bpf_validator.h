@@ -3,7 +3,7 @@
 #ifndef __BPF_VALIDATOR_H
 #define __BPF_VALIDATOR_H
 
-#define MAX_BUF_SIZE 256
+#define MAX_BUF_SIZE 2048
 
 struct so_event {
 	__be32 src_addr;
@@ -19,6 +19,15 @@ struct so_event {
 	// __u32 payload_length;
     // __u8 payload[MAX_BUF_SIZE];
 };
+
+//TODO remove
+struct port_pairs {
+	union {
+		__be32 ports;
+		__be16 port16[2];
+	};
+};
+
 
 volatile __u64 timestamps[60999] = { [0 ... 60998] = 0 };
 __u64 initial_timestamp = 0;

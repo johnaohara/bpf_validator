@@ -14,6 +14,10 @@
 #define IP_OFFSET 0x1FFF
 #define IP_TCP 6
 #define ETH_HLEN 14
+// #define DEBUG
+// #define TRACE
+
+#define PACKET_HOST	0
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
@@ -70,24 +74,28 @@ int socket_handler(struct __sk_buff *skb)
 	if (ip_is_fragment(skb, nhoff))
 		return 0;
 
+	if (skb->pkt_type != PACKET_HOST)
+		return 0;
+
 	// ip4 header lengths are variable
 	// access ihl as a u8 (linux/include/linux/skbuff.h)
 	bpf_skb_load_bytes(skb, ETH_HLEN, &hdr_len, sizeof(hdr_len));
 	hdr_len &= 0x0f;
 	hdr_len *= 4;
 
+	#ifdef TRACE
+		const char fmt_min_size_str[]  = "verify hlen meets minimum size requirements: %d";
+		bpf_trace_printk(fmt_min_size_str, sizeof(fmt_min_size_str), hdr_len);
+	#endif
+
 	/* verify hlen meets minimum size requirements */
 	if (hdr_len < sizeof(struct iphdr))
-	{
 		return 0;
-	}
 
 	bpf_skb_load_bytes(skb, nhoff + offsetof(struct iphdr, protocol), &ip_proto, 1);
 
-	if (ip_proto != IPPROTO_TCP)
-	{
+	if (ip_proto < 0 || ip_proto >= IPPROTO_MAX || ip_proto != IPPROTO_TCP)
 		return 0;
-	}
 
 	tcp_hdr_len = nhoff + hdr_len;
 	bpf_skb_load_bytes(skb, nhoff + 0, &verlen, 1);
@@ -101,6 +109,38 @@ int socket_handler(struct __sk_buff *skb)
 
 	payload_offset = ETH_HLEN + hdr_len + doff;
 	payload_length = __bpf_ntohs(tlen) - hdr_len - doff;
+	
+	#ifdef TRACE
+		const char fmt_verify_payload_str[]  = "verify payload payload_offset and payload_length: %d, %d";
+		bpf_trace_printk(fmt_verify_payload_str, sizeof(fmt_verify_payload_str), payload_offset, payload_length);
+	#endif
+
+
+	if (payload_length < 7 || payload_offset < 0)
+	{
+		#ifdef TRACE
+			const char fmt_payload_invalid_str[]  = "verify payload length and offset failed";
+			bpf_trace_printk(fmt_payload_invalid_str, sizeof(fmt_payload_invalid_str));
+		#endif
+		return 0;
+	}	
+
+	//TODO: remove struct - am rusty with c :(
+	struct port_pairs ports;
+	bpf_skb_load_bytes(skb, nhoff + hdr_len, &ports, 4);
+	__be16 snd_port = bpf_ntohs(ports.port16[0]);
+	__be16 rcv_port = bpf_ntohs(ports.port16[1]);
+
+	//TODO:: make SRV_PORT user configurable
+	if ( snd_port != SRV_PORT && rcv_port != SRV_PORT ) {
+		//do nothing - not a packet we are interested in
+		return 0;
+	}
+
+	#ifdef TRACE
+		const char fmt_bpf_skb_load_bytes_str[]  = "bpf_skb_load_bytes";
+		bpf_trace_printk(fmt_bpf_skb_load_bytes_str, sizeof(fmt_bpf_skb_load_bytes_str));
+	#endif
 
 	char line_buffer[7];
 	if (payload_length < 7 || payload_offset < 0)

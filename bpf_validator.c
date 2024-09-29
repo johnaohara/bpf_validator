@@ -18,6 +18,8 @@
 #include <hdr/hdr_histogram.h>
 #include <inttypes.h>
 
+// #define DEBUG
+
 static int open_raw_sock(const char *name)
 {
 	struct sockaddr_ll sll;
@@ -72,16 +74,15 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 	ltoa(ntohl(e->src_addr), sstr);
 	ltoa(ntohl(e->dst_addr), dstr);
 
+	#ifdef DEBUG
+		printf("timestamp received: %llu\n", e->ktime_ns);
+	#endif
 
 	__u32 port = 0;
 
-	if ( ntohs(e->port16[0]) != SRV_PORT && ntohs(e->port16[1]) != SRV_PORT ) {
-		//do nothing - not a packet we are interested in
-		//TODO: this should be filtered in bpf program before being sent over ring buffer
-		return 0;
-	}
-
-
+	#ifdef DEBUG
+		printf("Found valid packet port - expecting: %d; got %d & %d\n", SRV_PORT, SND_PORT, RCV_PORT);
+	#endif
 
 	//todo: make this dynamic / configurable
 	if ( ntohs(e->port16[0]) == SRV_PORT) {
@@ -101,13 +102,25 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 	__u64 val = timestamps[port];
 
 	if ( val == 0 ){
+		#ifdef DEBUG
+			printf("Setting timestamp %llu : %llu\n", val, e->ktime_ns);
+		#endif
+
 		timestamps[port] = e->ktime_ns;
 	} else {
+		#ifdef DEBUG
+			printf("Adding to histogram %llu\n", val);
+		#endif
+
 		hdr_record_value(
 			histogram,
 			e->ktime_ns - val);
-		// printf("%d(src) -> %d(dst); %llu\n", ntohs(e->port16[0]), ntohs(e->port16[1]), e->ktime_ns);
-		// printf("timestamp: %llu\n", e->ktime_ns - val);
+
+		#ifdef DEBUG
+			printf("%d(src) -> %d(dst); %llu\n", SND_PORT, RCV_PORT, e->ktime_ns);
+			printf("timestamp: %llu\n", e->ktime_ns - val);
+		#endif
+
 		timestamps[port] = 0;
 
 		events = events + 1;
