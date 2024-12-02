@@ -102,9 +102,13 @@ void printHdrHisto(){
 	printf("\n");
 	printf("50.0th Percentile: %f\n", hdr_value_at_percentile(histogram, 50.0) / 1000000.0);
 	printf("90.0th Percentile: %f\n", hdr_value_at_percentile(histogram, 90.0) / 1000000.0);
+	printf("95.0th Percentile: %f\n", hdr_value_at_percentile(histogram, 95.0) / 1000000.0);
 	printf("99.0th Percentile: %f\n", hdr_value_at_percentile(histogram, 99.0) / 1000000.0);
 	printf("99.9th Percentile: %f\n", hdr_value_at_percentile(histogram, 99.9) / 1000000.0);
 	printf("99.99th Percentile: %f\n", hdr_value_at_percentile(histogram, 99.99) / 1000000.0);
+
+	printf("\n%s\n", "  Detailed Percentile spectrum:");
+	hdr_percentiles_print(histogram, stdout, 5, 1000.0, CLASSIC);
 
 	double time_span = (final_timestamp - initial_timestamp)  ;
 
